@@ -21,22 +21,25 @@ export abstract class Area {
 		public id: number = 0) {
   }
 
-  static fromObject(o: Object): Area {
+  static fromObject(o: unknown): Area {
     switch ((<Area>o).shape) {
-    case 'rect':
-      const r = o as AreaRect;
-      return new AreaRect(r.coords.map(Coord.fromObject), r.href, r.title, r.id);
-    case 'circle':
-      const c = o as AreaCircle;
-      return new AreaCircle(c.coords.map(Coord.fromObject), c.radius, c.href, c.title, c.id);
-    case 'poly':
-      const p = o as AreaPoly;
-      return new AreaPoly(p.coords.map(Coord.fromObject), p.href, p.title, p.id, p.closed);
-    case 'default':
-      const d = o as AreaDefault;
-      return new AreaDefault(d.iMap, d.href, d.title);
-    default:
-      throw 'Not an area';
+      case 'rect':
+        const r = o as AreaRect;
+        return new AreaRect(r.coords.map(Coord.fromObject), r.href, r.title, r.id);
+      case 'circle':
+        const c = o as AreaCircle;
+        return new AreaCircle(c.coords.map(Coord.fromObject), c.radius, c.href, c.title, c.id);
+      case 'poly':
+        const p = o as AreaPoly;
+        return new AreaPoly(p.coords.map(Coord.fromObject), p.href, p.title, p.id, p.closed);
+      case 'point':
+        const pt = o as AreaPoint;
+        return new AreaPoint(pt.coords.map(Coord.fromObject), pt.href, pt.title, pt.id);
+      case 'default':
+        const d = o as AreaDefault;
+        return new AreaDefault(d.iMap, d.href, d.title);
+      default:
+        throw 'Not an area';
     }
   }
 
@@ -205,15 +208,17 @@ export class AreaEmpty extends Area {
     return false;
   }
 
-  svgArea(scale: number): string {
+  svgArea(): string {
     return '';
   }
 
-  isOver(coord: Coord): boolean {
+  isOver(): boolean {
     return false;
   }
 
-  display(p: p5): void {}
+  display(): void {
+    return;
+  }
 }
 
 export class AreaCircle extends Area {
@@ -434,7 +439,41 @@ export class AreaDefault extends Area {
     p5.rect(0, 0, this.iMap.width - 1, this.iMap.height - 1);
   }
 
-  svgArea(scale: number): string {
+  svgArea(): string {
     return '<rect x="0" y="0" width="100%" height="100%" />';
+  }
+}
+
+export class AreaPoint extends Area {
+  /**
+   * @param {Coord[]} coords the list of coordinates
+   * @param {string} href the link this area is going to point to
+   * @param {number} id the unique id
+   */
+  constructor(
+    coords: Coord[] = [],
+    href = '',
+    title = '',
+    id = 0
+  ) {
+    super('point', coords, href, title, id);
+  }
+
+  isDrawable(): boolean {
+    return this.coords.length == 1;
+  }
+
+  isOver(coord: Coord): boolean {
+    return Coord.dist(coord, this.firstCoord()) < 5;
+  }
+
+  display(p: p5): void {
+    p.circle(this.firstCoord().x, this.firstCoord().y, 5);
+  }
+
+  svgArea(scale: number): string {
+    const x = this.coords[0].toStr(0, 'x', scale);
+    const y = this.coords[0].toStr(0, 'y', scale);
+    return `<circle cx="${x}" cy="${y}" r="5" fill="red" />`;
   }
 }

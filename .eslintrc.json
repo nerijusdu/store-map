@@ -29,7 +29,8 @@
     ],
     "indent": [
       "warn",
-      2
+      2,
+      { "SwitchCase": 1 }
     ],
     "react-hooks/exhaustive-deps": "off",
     "react/prop-types": "off",

@@ -1,7 +1,7 @@
 import p5 from 'p5';
 import { Coord } from './coord';
 
-export type Shape = 'empty' | 'rect' | 'circle' | 'poly' | 'default';
+export type Shape = 'empty' | 'rect' | 'circle' | 'poly' | 'default' | 'point';
 
 export type Axle = 'x'|'y';
 
@@ -11,7 +11,7 @@ export interface Movable {
 	setPosition(coord: Coord): void;
 }
 
-export type Tool = 'polygon' | 'rectangle' | 'circle' | 'select' | 'delete' | 'test';
+export type Tool = 'polygon' | 'rectangle' | 'circle' | 'select' | 'delete' | 'test' | 'point';
 export type Image = {
 	data: p5.Image|null,
 	file: p5.File|null,

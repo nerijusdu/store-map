@@ -19,7 +19,7 @@ export class ImageMap {
 		public hasDefaultArea: boolean = false
   ) {}
 
-  setFromObject(obj: Object): this {
+  setFromObject(obj: unknown): this {
     const iMap = obj as ImageMap;
     iMap.dArea.iMap = this;
     this.width = iMap.width;
