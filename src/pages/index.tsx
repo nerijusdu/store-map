@@ -1,14 +1,29 @@
-import Head from 'next/head';
+import { useEffect, useRef } from 'react';
+import ImageMapCreator from '@/components/editor';
 
-export default function Home() {
+function Home() {
+  const ref = useRef(null);
+  const canvas = useRef<ImageMapCreator>();
+  
+  useEffect(() => {
+    if (
+      typeof window === 'undefined' ||
+      !ref.current ||
+      canvas.current
+    ) return;
+
+    canvas.current = new ImageMapCreator(ref.current);
+
+    return () => {
+      // canvas.current?.p5.remove();
+    };
+  }, []);
+
   return (
     <>
-      <Head>
-        <title>Store map</title>
-        <meta name="description" content="" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
+      <div ref={ref} className="canvas-container"></div>
     </>
   );
 }
+
+export default Home;
