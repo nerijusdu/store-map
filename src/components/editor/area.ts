@@ -440,7 +440,7 @@ export class AreaDefault extends Area {
   }
 
   svgArea(): string {
-    return '<rect x="0" y="0" width="100%" height="100%" />';
+    return '<rect fill="white" x="0" y="0" width="100%" height="100%" />';
   }
 }
 

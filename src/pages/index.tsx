@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import ImageMapCreator from '@/components/editor';
+import Image from 'next/image';
 
 function Home() {
   const ref = useRef(null);
@@ -22,6 +23,7 @@ function Home() {
   return (
     <>
       <div ref={ref} className="canvas-container"></div>
+      <Image src="/test.svg" width="600" height="500" alt="test" />
     </>
   );
 }

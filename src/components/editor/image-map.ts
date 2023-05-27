@@ -60,7 +60,7 @@ export class ImageMap {
 	 */
   getAreas(all = true): Area[] {
     const areas = this.areas.slice();
-    if (all && this.hasDefaultArea) areas.push(this.dArea);
+    if (all && this.hasDefaultArea) areas.unshift(this.dArea);
     return areas;
   }
 
@@ -145,7 +145,7 @@ export class ImageMap {
 
   toSvg(scale = 1): string {
     const areas: string[] = [];
-    this.getAreas(false).forEach(a => {
+    this.getAreas(true).forEach(a => {
       if (a.isValidShape()) {
         areas.push('\t' + a.toSvg(scale));
       }
