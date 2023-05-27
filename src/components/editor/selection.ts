@@ -1,13 +1,11 @@
 import { Area } from './area';
 import { Coord } from './coord';
 
-export class Selection {
+export class Movement {
   protected origin: Coord = new Coord();
   protected position: Coord = this.origin.clone();
   protected areas: Map<number, Area> = new Map;
   protected points: Map<Coord, number> = new Map;
-
-  constructor() {}
 
   resetOrigin(coord: Coord = new Coord()): void {
     this.origin = coord.clone();

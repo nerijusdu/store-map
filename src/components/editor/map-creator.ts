@@ -4,7 +4,7 @@ import { ImageMap } from './image-map';
 import { BgLayer } from './bg-layer';
 import { Area, AreaCircle, AreaRect, AreaPoly, AreaEmpty, AreaPoint } from './area';
 import { Coord } from './coord';
-import { Selection } from './selection';
+import { Movement } from './selection';
 //@ts-ignore no types for this lib
 import UndoManager from 'undo-manager';
 import QuickSettings, { QuickSettingsPanel } from 'quicksettings';
@@ -37,6 +37,7 @@ export class ImageMapCreator {
   protected tool: Tool;
   protected drawingTools: Tool[];
   protected settings!: QuickSettingsPanel;
+  protected areaSettings: QuickSettingsPanel | null;
   protected menu: Menu = {
     SetUrl: {
       onSelect: (_1, _2, _3, area) => { this.setAreaUrl(area); },
@@ -59,7 +60,8 @@ export class ImageMapCreator {
     },
   };
   protected tempArea: Area;
-  protected selection: Selection;
+  protected movement: Movement;
+  protected selectedArea: Area|null;
   protected hoveredArea: Area|null;
   protected hoveredPoint: Coord|null;
   public map: ImageMap;
@@ -78,9 +80,10 @@ export class ImageMapCreator {
     this.height = height;
     this.tool = 'polygon';
     this.drawingTools = ['rectangle', 'circle', 'polygon'];
-    this.settings;
+    this.areaSettings = null;
     this.tempArea = new AreaEmpty();
-    this.selection = new Selection();
+    this.movement = new Movement();
+    this.selectedArea = null;
     this.hoveredArea = null;
     this.hoveredPoint = null;
     this.map = new ImageMap(width, height);
@@ -136,7 +139,14 @@ export class ImageMapCreator {
     this.settings = QuickSettings.create(this.p5.width + 5, 0, 'Image-map Creator', this.p5.canvas.parentElement)
       .setDraggable(false)
       .addText('Map Name', '', (v: string) => { this.map.setName(v); })
-      .addDropDown('Tool', ['polygon', 'rectangle', 'circle', 'select', 'delete', 'point'], v => { this.setTool(v.value); })
+      .addDropDown('Tool', ['polygon', 'rectangle', 'circle', 'move', 'delete', 'point', 'select'], v => { 
+        this.setTool(v.value); 
+        if (this.areaSettings) {
+          this.selectedArea = null;
+          this.areaSettings.destroy();
+          this.areaSettings = null;
+        }
+      })
       .addBoolean('Default Area', this.map.hasDefaultArea, (v: boolean) => { this.setDefaultArea(v); })
       .addButton('Undo', this.undoManager.undo)
       .addButton('Redo', this.undoManager.redo)
@@ -147,12 +157,11 @@ export class ImageMapCreator {
       .addTextArea('Input', '')
       .addButton('Load', this.load.bind(this))
       .addTextArea('Output', '');
-    //@ts-ignore Fix for oncontextmenu
+    //@ts-ignore
     this.p5.canvas.addEventListener('contextmenu', (e) => { e.preventDefault(); });
-    //@ts-ignore Fix for middle click mouse down triggers scroll on windows
+    // @ts-ignore
     this.p5.canvas.addEventListener('mousedown', (e) => { e.preventDefault(); });
-    //@ts-ignore Select all onclick on the Output field
-    document.getElementById('Output').setAttribute('onFocus', 'this.select();');
+    document.getElementById('Output')?.setAttribute('onFocus', 'this.select();');
   }
 
   private draw(): void {
@@ -193,20 +202,36 @@ export class ImageMapCreator {
               this.tempArea.addCoord(this.mCoord());
             }
             break;
-          case 'select':
+          case 'move':
+            console.log(this.hoveredArea, this.hoveredPoint);
             if (this.hoveredPoint !== null) {
-              this.selection.addPoint(this.hoveredPoint);
-              this.selection.registerArea(this.hoveredArea!);
-              this.selection.resetOrigin(this.hoveredPoint);
+              this.movement.addPoint(this.hoveredPoint);
+              this.movement.registerArea(this.hoveredArea!);
+              this.movement.resetOrigin(this.hoveredPoint);
             } else if (this.hoveredArea !== null) {
-              this.selection.addArea(this.hoveredArea);
-              this.selection.resetOrigin(this.mCoord());
+              this.movement.addArea(this.hoveredArea);
+              this.movement.resetOrigin(this.mCoord());
             }
             break;
           case 'point':
             const areaPoint = new AreaPoint([this.mCoord()]);
             this.createArea(areaPoint);
-            console.log('point', this.mCoord());
+            break;
+          case 'select':
+            if (this.areaSettings) {
+              this.areaSettings.destroy();
+              this.areaSettings = null;
+              this.selectedArea = null;
+            }
+
+            if (this.hoveredArea) {
+              this.selectedArea = this.hoveredArea;
+              // @ts-ignore
+              this.areaSettings = QuickSettings.create(this.p5.width + 210, 0, 'Area settings', this.p5.canvas.parentElement)
+                .setDraggable(false)
+                .addText('Title', this.selectedArea.getTitle(), (v: string) => { this.selectedArea?.setTitle(v); })
+                .addText('Url', this.selectedArea.getHref(), (v: string) => { this.selectedArea?.setHref(v); });
+            }             
             break;
         }
       }
@@ -217,8 +242,8 @@ export class ImageMapCreator {
     if (this.mouseIsHoverSketch() /* && !ContextMenu.isOpen() */) {
       if (this.p5.mouseButton == this.p5.LEFT) {
         switch (this.tool) {
-          case 'select':
-            this.selection.setPosition(this.drawingCoord());
+          case 'move':
+            this.movement.setPosition(this.drawingCoord());
             break;
         }
       } else if (this.p5.mouseButton == this.p5.CENTER) {
@@ -236,16 +261,16 @@ export class ImageMapCreator {
           this.createArea(this.tempArea);
         this.tempArea = new AreaEmpty();
         break;
-      case 'select':
-        const selection = this.selection;
+      case 'move':
+        const selection = this.movement;
         if (!selection.isEmpty()) {
-          const move = this.selection.distToOrigin();
+          const move = this.movement.distToOrigin();
           this.undoManager.add({
             undo: () => selection.move(move.invert()),
             redo: () => selection.move(move),
           });
         }
-        this.selection = new Selection();
+        this.movement = new Movement();
         break;
     }
     this.onClick();
@@ -336,7 +361,7 @@ export class ImageMapCreator {
     this.hoveredPoint = null;
     const allAreas = this.map.getAreas();
     const area = allAreas.find((a: Area): boolean => {
-      if (this.selection.containsArea(a)) {
+      if (this.movement.containsArea(a)) {
         return false;
       }
       if (a.isOver(this.mCoord())) {
@@ -352,7 +377,7 @@ export class ImageMapCreator {
     if (this.mouseIsHoverSketch()) {
       if (this.hoveredArea) {
         if (this.p5.mouseButton == this.p5.RIGHT) {
-          this.selection.addArea(this.hoveredArea);
+          this.movement.addArea(this.hoveredArea);
           this.menu.MoveFront.enabled = !(this.map.isFirstArea(this.hoveredArea.id) || this.hoveredArea.getShape() == 'default');
           this.menu.MoveBack.enabled = !(this.map.isLastArea(this.hoveredArea.id) || this.hoveredArea.getShape() == 'default');
           // ContextMenu.display(event, this.menu, {
@@ -369,7 +394,7 @@ export class ImageMapCreator {
         }
       }
     }
-    this.selection.clear();
+    this.movement.clear();
   }
 
   onOver(evt: MouseEvent): void {
@@ -489,7 +514,7 @@ export class ImageMapCreator {
           case 'delete':
             this.p5.cursor(this.p5.HAND);
             break;
-          case 'select':
+          case 'move':
             if (!this.hoveredPoint) {
               this.p5.cursor(this.p5.MOVE);
             }
@@ -501,7 +526,7 @@ export class ImageMapCreator {
 
   setOutput(): void {
     switch (this.tool) {
-      case 'select':
+      case 'move':
         if (this.mouseIsHoverSketch()) {
           const href = this.hoveredArea ? this.hoveredArea.getHrefVerbose() : 'none';
           this.settings.setValue('Output', href);
@@ -533,12 +558,17 @@ export class ImageMapCreator {
 
   setAreaStyle(area: Area): void {
     let color = this.p5.color(255, 255, 255, 178);
-    if (((this.tool == 'delete' || this.tool == 'select') &&
-			this.mouseIsHoverSketch() &&
-			area == this.hoveredArea) ||
-			this.selection.containsArea(area)
+    if (
+      (
+        (this.tool == 'delete' || this.tool == 'move') &&
+        this.mouseIsHoverSketch() &&
+        area == this.hoveredArea
+      ) ||
+			this.movement.containsArea(area) ||
+      area == this.selectedArea
     ) {
-      color = this.p5.color(255, 200, 200, 178); // highlight (set color red)
+      const colorRed = [255, 200, 200, 178] as const;
+      color = this.p5.color(...colorRed);
     }
     this.p5.fill(color);
     this.p5.strokeWeight(1 / this.view.scale);
